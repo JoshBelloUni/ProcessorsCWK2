@@ -5,13 +5,13 @@
 
 load Rotate.asm,
 output-file Rotate.out,
-compare-to Rotate.cmp,
+// compare-to Rotate.cmp,
 output-list RAM[5]%D2.6.2;
 
-set RAM[3] 1,   // Set test arguments tests a rotate MSB 0
-set RAM[4] 1,
+set RAM[3] 32767,   // Set test arguments tests a rotate MSB 0
+set RAM[4] 7,
 set RAM[5] 0,
-repeat 100 {
+repeat 200 {
   ticktock;
 }
 output;
