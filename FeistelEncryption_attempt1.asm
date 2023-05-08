@@ -35,6 +35,55 @@ D=D&M
 @LEFT_HALF
 M=D
 
+// rotating the left hand side to the right
+// will be used when i later put them back together and
+// it will also help when i XOR them together
+(LEFT_ROTATION_SHIFT)
+
+    // storing counter
+    @8
+    D=A
+    @LEFT_ROTATION
+    M=D
+
+    // check if input variable is negative
+    // because MSB is 1 if negative
+    @LEFT_HALF
+    D=M
+    @LEFT_NEG
+    D;JLE
+    
+    // shifts the bit left by 1 each iteration by adding itself once
+    // jumps to the decrementation of the ROTATION counter
+    // in order to skip adding 1 if no bit is needed to be rotated
+    @LEFT_HALF
+    D=M
+    D=D+M
+    M=D
+    @END_LEFT_LOOP
+    0;JMP
+
+    // this is the code that is run when MSB is 1
+    // runs the same code as before, but also adds 1 to rotate the MSB to LSB
+    // also jumps down to the decrementing of ROTATION
+    (LEFT_NEG)
+        @LEFT_HALF
+        D=M
+        D=D+M
+        D=D+1
+        M=D
+        @END_LEFT_LOOP
+        0;JMP
+
+    // decrements rotation
+    // checks if its still > 0, then continues the loop
+    (END_LEFT_LOOP)
+        @ROTATION
+        D=M
+        D=D-1
+        M=D
+        @LEFT_ROTATION_SHIFT
+        D;JGT
 
 // this will rotate only the 8 bits on the right
 // by the amount specified in the key
