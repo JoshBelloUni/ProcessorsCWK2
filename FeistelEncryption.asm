@@ -1,17 +1,17 @@
 // initialising variables
 @R1
 D=M
-@KEY
+@KEY   
 M=D
 
 @R2
 D=M
-@TEXT
+@TEXT 
 M=D
 
 @4
 D=A
-@COUNTER
+@COUNTER    
 M=D
 
 (ROUND)
@@ -21,41 +21,195 @@ M=D
 // this only gives me what is on the right hand side
 @255
 D=A
-@TEXT
+@TEXT  
 D=D&M
-@RIGHT_HALF
+@RIGHT_HALF 
 M=D
 
 // ANDing 111111100000000 with the plaintext
 // to only give me the left hand side
-@-128
+@255
 D=A
-@TEXT
+D=!D
+@TEXT   
 D=D&M
 @LEFT_HALF
 M=D
 
+// shifting to the right half to the left
+@RIGHT_HALF    
+D=M
+@NEW_LEFT    
+M=D
 
-// this will rotate only the 8 bits on the right
-// by the amount specified in the key
-(EIGHT_BIT_ROTATE_LOOP)
+@8
+D=A
+@MNL_COUNTER 
+M=D
 
-    // temporary variable for the key
-    @KEY
+(MAKE_NEW_LEFT) 
+    // shifting the right bits to the left to make the new left hand side
+    @NEW_LEFT  
     D=M
-    @TEMP_KEY
+    D=D+M
     M=D
-       
+
+    @MNL_COUNTER    
+    M=M-1
+    D=M
+    @MAKE_NEW_LEFT 
+    D;JGT
+
+// negating key
+@KEY   
+D=M
+D=!D
+@255 // its only an 8 bit key so mask with 255
+D=D&A
+@NEGATED_KEY
+M=D
+
+(XOR_WITH_KEY)
+    // this is the loop that gets the negated key for that current loop
+    // and XORs it with RIGHT HALF
+    // this will eventually be XORed with the left side to
+    // get the new right side
+
+    // negating the variables
+    @RIGHT_HALF 
+    D=M
+    @NOT_RIGHT_HALF    
+    M=!D
+
+    @NEGATED_KEY    
+    D=M
+    @NOT_NEGATED_KEY   
+    M=!D
+
+    // ANDing RIGHT_HALF and NEGATED_KEY
+    @RIGHT_HALF   
+    D=M
+    @NOT_NEGATED_KEY   
+    D=D&M
+    @RIGHT_AND_NOT_NEGATED_KEY 
+    M=D
+
+    // ANDing NOT_RIGHT_HALF and NEGATED_KEY
+    @NOT_RIGHT_HALF
+    D=M
+    @NEGATED_KEY  
+    D=D&M
+    @NOT_RIGHT_AND_NEGATED_KEY 
+    M=D
+
+    //ORing to get final XOR product:
+    @RIGHT_AND_NOT_NEGATED_KEY 
+    D=M
+    @NOT_RIGHT_AND_NEGATED_KEY  
+    D=D|M
+    @KEYD_RIGHT 
+    M=D
+
+// storing counter
+@8
+D=A
+@LEFT_ROTATION
+M=D
+
+(LEFT_ROTATION_SHIFT)  
+    // shifts what is on the left hand side to the right for XORing
+    @LEFT_HALF 
+    D=M
+    @LEFT_NEG 
+    D;JLT
+
+    // shifts up if MSB is 0
+    @LEFT_HALF
+    D=M
+    D=D+M
+    M=D
+    @END_LRF
+    0;JMP
+
+    (LEFT_NEG)
+        // shifts up if MSB is 1
+        // so that I add 1
+        @LEFT_HALF
+        D=M
+        D=D+M
+        D=D+1
+        M=D
+        @END_LRF
+        0;JMP
+    
+(END_LRF)
+    @LEFT_ROTATION
+    M=M-1
+    D=M
+    @LEFT_ROTATION_SHIFT
+    D;JGT
+
+// this section XORs the new rotated right half with the old left half
+// the old left half has just been rotated previously so now exists in the right half. 
+// this XOR will replace RIGHT_HALF
+(XOR)
+
+    // negating the variables
+    @KEYD_RIGHT
+    D=M
+    @NOT_RIGHT_HALF2
+    M=!D
+
+    @LEFT_HALF
+    D=M
+    @NOT_LEFT_HALF
+    M=!D
+
+    // ANDing KEYD_RIGHT and NOT_LEFT_HALF
+    @KEYD_RIGHT
+    D=M
+    @NOT_LEFT_HALF
+    D=D&M
+    @RIGHT_AND_NOT_LEFT
+    M=D
+
+    // ANDing NOT_RIGHT_HALF and LEFT_HALF
+    @NOT_RIGHT_HALF2
+    D=M
+    @LEFT_HALF
+    D=D&M
+    @NOT_RIGHT_AND_LEFT
+    M=D
+
+    //ORing to get final XOR product:
+    @RIGHT_AND_NOT_LEFT
+    D=M
+    @NOT_RIGHT_AND_LEFT
+    D=D|M
+    @NEW_RIGHT
+    M=D
+
+// ORing new left and new right to get the next stage of the cipher
+@NEW_LEFT
+D=M
+@NEW_RIGHT
+D=D|M
+@TEXT
+M=D
+
+// shifting the key each interation
+(KEY_SHIFT)
+     
     // check if input variable is greater than 128
     @128
     D=A
-    @RIGHT_HALF
+    @KEY
     D=D-M
     @GREATER
     D;JLE
     
     // this is the standard right shift if there is no MSB
-    @RIGHT_HALF
+    @KEY
     D=M
     D=D+M
     M=D
@@ -68,138 +222,16 @@ M=D
     // to get rid of and bits beyond the 8 bits of the scope
     // add 1 to rotate the significant bit around
     (GREATER)
-        @RIGHT_HALF
+        @KEY
         D=M
         D=D+M
-        @TEMP_ADDED
-        M=D
         @255
-        D=A
-        @TEMP_ADDED
-        D=D&M
+        D=D&A
         D=D+1
-        @RIGHT_HALF
         M=D
         @END_LOOP
         0;JMP
-
-    // decrements rotation
-    // checks if its still > 0, then continues the loop
-    (END_LOOP)
-        @TEMP_KEY
-        D=M
-        D=D-1
-        M=D
-        @EIGHT_BIT_ROTATE_LOOP
-        D;JGT
-
-// NOTing the RIGHT_HALF for the function
-@RIGHT_HALF
-D=M
-D=!D
-@255
-D=A&D
-M=D
-
-// this section XORs the new rotated right half with the old left half
-// the old left half has just been rotated previously so now exists in the right half. 
-// this XOR will replace RIGHT_HALF
-(XOR)
-
-    // negating the variables
-    @RIGHT_HALF
-    D=M
-    @NOT_RIGHT_HALF
-    M=!D
-
-    @LEFT_HALF
-    D=M
-    @NOT_LEFT_HALF
-    M=!D
-
-    // ANDing RIGHT_HALF and NOT_LEFT_HALF
-    @RIGHT_HALF
-    D=M
-    @NOT_LEFT_HALF
-    D=D&M
-    @RIGHT_AND_NOT_LEFT
-    M=D
-
-    // ANDing NOT_RIGHT_HALF and LEFT_HALF
-    @NOT_RIGHT_HALF
-    D=M
-    @LEFT_HALF
-    D=D&M
-    @NOT_RIGHT_AND_LEFT
-    M=D
-
-    //ORing to get final XOR product:
-    @RIGHT_AND_NOT_LEFT
-    D=M
-    @NOT_RIGHT_AND_LEFT
-    D=D|M
-    @RIGHT_HALF
-    M=D
-
-@RIGHT_HALF
-D=M
-
-// this function rotates the wholes 16 bits by 8 bits
-// using this will shift the RIGHT_HALF to the left side
-
-// storing counter
-@8
-D=A
-@RIGHT_ROTATION
-M=D
-
-(RIGHT_ROTATION_SHIFT)
-
-    // check if input variable is negative
-    // because MSB is 1 if negative
-    @RIGHT_HALF
-    D=M
-    @RIGHT_NEG
-    D;JLT
-    
-    // shifts the bit left by 1 each iteration by adding itself once
-    // jumps to the decrementation of the ROTATION counter
-    // in order to skip adding 1 if no bit is needed to be rotated
-    @RIGHT_HALF
-    D=M
-    D=D+M
-    M=D
-    @END_RIGHT_LOOP
-    0;JMP
-
-    // this is the code that is run when MSB is 1
-    // runs the same code as before, but also adds 1 to rotate the MSB to LSB
-    // also jumps down to the decrementing of ROTATION
-    (RIGHT_NEG)
-        @RIGHT_HALF
-        D=M
-        D=D+M
-        D=D+1
-        M=D
-        @END_RIGHT_LOOP
-        0;JMP
-
-    // decrements rotation
-    // checks if its still > 0, then continues the loop
-    (END_RIGHT_LOOP)
-        @RIGHT_ROTATION
-        D=M
-        D=D-1
-        M=D
-        @RIGHT_ROTATION_SHIFT
-        D;JGT 
-
-@RIGHT_HALF
-D=M
-@LEFT_HALF
-D=M|D
-@TEXT
-D=M
+(END_LOOP)
 
 // check if counter is greater than 0
 // if it is, continue the loop until 4 rounds are completed
@@ -213,7 +245,7 @@ D;JGT
 // output final result
 @TEXT
 D=M
-@R5
+@R0
 M=D
 
 (END)
